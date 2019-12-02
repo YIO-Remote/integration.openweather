@@ -6,11 +6,12 @@ DEFINES     += DEBUG
 include(../remote-software/qmake-target-platform.pri)
 include(../remote-software/qmake-destination-path.pri)
 
-HEADERS         = OpenWeather.h RestClient.h ImageCache.h \
+HEADERS         = OpenWeather.h RestClient.h ImageCache.h WeatherModel.h \
+                  ../remote-software/sources/entities/weatherinterface.h \
                   ../remote-software/sources/integrations/integration.h \
-                  ../remote-software/sources/integrations/integrationinterface.h
+                  ../remote-software/sources/integrations/integrationinterface.h \
 
-SOURCES         = OpenWeather.cpp RestClient.cpp ImageCache.cpp
+SOURCES         = OpenWeather.cpp RestClient.cpp ImageCache.cpp WeatherModel.cpp
 
 TARGET          = openweather
 

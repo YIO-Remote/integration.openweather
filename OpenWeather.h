@@ -5,9 +5,11 @@
 #include "../remote-software/sources/integrations/integration.h"
 #include "../remote-software/sources/integrations/integrationinterface.h"
 #include "../remote-software/sources/entities/entitiesinterface.h"
+#include "../remote-software/sources/entities/weatherinterface.h"
 #include "../remote-software/sources/notificationsinterface.h"
 #include "RestClient.h"
 #include "ImageCache.h"
+#include "WeatherModel.h"
 
 class OpenWeatherFactory : public IntegrationInterface
 {
@@ -26,8 +28,8 @@ private:
     QLoggingCategory    _log;
 };
 
-struct WeatherModel {
-    WeatherModel();
+struct OpenWeatherModel {
+    OpenWeatherModel();
     int         date;
     QString     description;
     QString     imageurl;
@@ -41,14 +43,13 @@ struct WeatherModel {
 
     int         day() const     { return date / 86400; }
     int         hour() const    { return (date % 86400) / 3600; }
-    QVariantMap toCurrentMap    (const QString& units, const QString& iconUrl);
-    QVariantMap toDayMap        (const QString& units, const QString& iconUrl);
+    WeatherItem toItem          (const QString& units, const QString& iconUrl, bool curren);
     void        fromCurrent     (const QVariantMap& current);
-    void        init            (const WeatherModel& model);
-    void        add             (const WeatherModel& model);
+    void        init            (const OpenWeatherModel& model);
+    void        add             (const OpenWeatherModel& model);
 
-    static QList<WeatherModel>  fromForecast(const QVariantMap& forecast);
-    static void toDayForecast(QList<WeatherModel>& perDay, const QList<WeatherModel>& _3h);
+    static QList<OpenWeatherModel>  fromForecast(const QVariantMap& forecast);
+    static void toDayForecast(QList<OpenWeatherModel>& perDay, const QList<OpenWeatherModel>& _3h);
 };
 
 class OpenWeather : public Integration
@@ -81,13 +82,13 @@ private:
             index(index),
             entity(entity)
         {}
-        int                 index;
-        EntityInterface*    entity;
-        WeatherModel        current;
-        QList<WeatherModel> forecast;
-        QVariantList        forecastWaitForImages;
+        int                     index;
+        EntityInterface*        entity;
+        OpenWeatherModel        current;
+        QList<OpenWeatherModel> forecast;
+        QList<WeatherItem>      forecastWaitForImages;
     };
-    bool applyImageCache            (QVariantMap& map, WeatherModel& weatherModel);
+    bool applyImageCache            (WeatherItem& item, OpenWeatherModel& weatherModel);
     void getCurrent                 (WeatherContext &context);
     void getForecast                (WeatherContext &context);
 
@@ -97,6 +98,7 @@ private:
     QString                         _language;
     QString                         _units;
     QList<WeatherContext>           _contexts;
+    WeatherModel                    _model;
     NotificationsInterface*         _notifications;
     EntitiesInterface*              _entities;
     RestClient                      _restClient;

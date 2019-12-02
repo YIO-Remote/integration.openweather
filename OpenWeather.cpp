@@ -38,65 +38,40 @@ void OpenWeatherFactory::create(const QVariantMap &config, QObject *entities, QO
         emit createDone(returnData);
 }
 
-QVariantMap WeatherModel::toCurrentMap(const QString& units, const QString& iconUrl) {
+WeatherItem OpenWeatherModel::toItem (const QString& units, const QString& iconUrl, bool current)
+{
     Q_UNUSED(units)
-    QVariantMap map;
+    WeatherItem item;
     QDate dt = QDateTime::fromSecsSinceEpoch(date).date();
     QString dayname = QDate::shortDayName(dt.dayOfWeek());
     if (dayname.endsWith('.'))
         dayname = dayname.left(dayname.length() - 1);
-    map["date"] = dayname;
-    map["description"] = description;
-    map["imageurl"] = iconUrl + imageurl + "@2x.png";
-    map["temp"] = QString ("%1 (%2 - %3) °C").arg(temp).arg(tempmin).arg(tempmax);
+    item.setDate(dayname);
+    item.setDescription(description);
+    item.setImageurl(iconUrl + imageurl + "@2x.png");
+    if (current)
+        item.setTemp(QString ("%1 (%2 - %3) °C").arg(temp).arg(tempmin).arg(tempmax));
+    else
+        item.setTemp(QString ("%1 - %2 °C").arg(tempmin).arg(tempmax));
     if (rain > 0) {
-        map["rain"] = QString("%1 mm").arg(rain);
-        map["snow"] = "";
+        item.setRain(QString("%1 mm").arg(rain));
+        item.setSnow("");
     }
     else {
-        map["rain"] = "";
+        item.setRain("");
         if (snow > 0)
-            map["snow"] = QString("%1 mm").arg(snow);
+            item.setSnow(QString("%1 mm").arg(snow));
         else
-            map["snow"] = "";
+            item.setSnow("");
     }
     if (wind > 0)
-        map["wind"] = QString("%1 km/h").arg(wind);
+        item.setWind(QString("%1 km/h").arg(wind));
     else
-        map["wind"] = "";
-    map["humidity"] = QString("%1 %").arg(humidity);
-    return map;
+        item.setWind("");
+    item.setHumidity(QString("%1 %").arg(humidity));
+    return item;
 }
-QVariantMap WeatherModel::toDayMap(const QString& units, const QString& iconUrl) {
-    Q_UNUSED(units)
-    QVariantMap map;
-    QDate dt = QDateTime::fromSecsSinceEpoch(date).date();
-    QString dayname = QDate::shortDayName(dt.dayOfWeek());
-    if (dayname.endsWith('.'))
-        dayname = dayname.left(dayname.length() - 1);
-    map["date"] = dayname;
-    map["description"] = description;
-    map["imageurl"] = iconUrl + imageurl + "@2x.png";
-    map["temp"] = QString ("%1 - %2 °C").arg(tempmin).arg(tempmax);
-    if (rain > 0) {
-        map["rain"] = QString("%1 mm").arg(rain);
-        map["snow"] = "";
-    }
-    else {
-        map["rain"] = "";
-        if (snow > 0)
-            map["snow"] = QString("%1 mm").arg(snow);
-        else
-            map["snow"] = "";
-    }
-    if (wind > 0)
-        map["wind"] = QString("%1 km/h").arg(wind);
-    else
-        map["wind"] = "";
-    map["humidity"] = QString("%1 %").arg(humidity);
-    return map;
-}
-WeatherModel::WeatherModel() :
+OpenWeatherModel::OpenWeatherModel() :
     date(0),
     temp(0),
     tempmin(0),
@@ -108,7 +83,7 @@ WeatherModel::WeatherModel() :
 {
 }
 
-void WeatherModel::fromCurrent(const QVariantMap &current) {
+void OpenWeatherModel::fromCurrent(const QVariantMap &current) {
     date = current["dt"].toInt();
     QVariantMap main = current["main"].toMap();
     humidity = main["humidity"].toInt();
@@ -132,7 +107,7 @@ void WeatherModel::fromCurrent(const QVariantMap &current) {
     description = weather["description"].toString();
     imageurl = weather["icon"].toString();
 }
-void WeatherModel::init (const WeatherModel& model)
+void OpenWeatherModel::init (const OpenWeatherModel& model)
 {
     date =          model.date;
     temp =          model.temp;
@@ -145,7 +120,7 @@ void WeatherModel::init (const WeatherModel& model)
     description =   model.description;
     imageurl =      model.imageurl;
 }
-void WeatherModel::add (const WeatherModel& model)
+void OpenWeatherModel::add (const OpenWeatherModel& model)
 {
     temp =          model.temp;
     if (model.tempmin < tempmin)
@@ -163,23 +138,23 @@ void WeatherModel::add (const WeatherModel& model)
     }
 }
 
-QList<WeatherModel> WeatherModel::fromForecast(const QVariantMap& forecast)
+QList<OpenWeatherModel> OpenWeatherModel::fromForecast(const QVariantMap& forecast)
 {
-    QList<WeatherModel> list;
+    QList<OpenWeatherModel> list;
     QVariantList l = forecast["list"].toList();
     for (QVariantList::iterator i = l.begin(); i != l.end(); ++i) {
-        WeatherModel model;
+        OpenWeatherModel model;
         model.fromCurrent(i->toMap());
         list.append(model);
     }
     return list;
 }
-void WeatherModel::toDayForecast(QList<WeatherModel>& perDay, const QList<WeatherModel>& _3h)
+void OpenWeatherModel::toDayForecast(QList<OpenWeatherModel>& perDay, const QList<OpenWeatherModel>& _3h)
 {
-    WeatherModel        dayModel;
+    OpenWeatherModel        dayModel;
     int day = 0;
     perDay.clear();
-    for (QList<WeatherModel>::const_iterator i = _3h.begin(); i != _3h.end(); ++i) {
+    for (QList<OpenWeatherModel>::const_iterator i = _3h.begin(); i != _3h.end(); ++i) {
         if (i->day() != day) {
             if (day != 0)
                 perDay.append(dayModel);
@@ -195,7 +170,7 @@ void WeatherModel::toDayForecast(QList<WeatherModel>& perDay, const QList<Weathe
 }
 
 
-QLoggingCategory OpenWeather::_log("roon");
+QLoggingCategory OpenWeather::_log("openweather");
 
 OpenWeather::OpenWeather(const QString& cacheDirectory, QObject* parent) :
     _apiUrl("https://api.openweathermap.org/data/2.5/"),
@@ -209,9 +184,7 @@ OpenWeather::OpenWeather(const QString& cacheDirectory, QObject* parent) :
     QObject::connect (&_imageCache, &ImageCache::allLoaded, this, &OpenWeather::onAllImagesLoaded);
 }
 OpenWeather::~OpenWeather()
-{
-}
-
+{}
 void OpenWeather::setup (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj)
 {
     Q_UNUSED(api)
@@ -294,9 +267,9 @@ void OpenWeather::onReplyCurrent (QVariantMap result, QVariant arg)
         setState(CONNECTED);
     WeatherContext& context = _contexts[arg.toInt()];
     context.current.fromCurrent(result);
-    QVariantMap map = context.current.toCurrentMap(_units, _iconUrl);
-    context.entity->updateAttrByIndex(WeatherDef::CURRENT, map);
-
+    WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
+    WeatherItem item = context.current.toItem(_units, _iconUrl, true);
+    wi->setCurrent (item);
     getForecast(_contexts[0]);  // @@@
 }
 void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
@@ -305,21 +278,21 @@ void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
     if (state() != CONNECTED)
         setState(CONNECTED);
     WeatherContext& context = _contexts[arg.toInt()];
-    QList<WeatherModel> forecast = WeatherModel::fromForecast(result);
-    WeatherModel::toDayForecast(context.forecast, forecast);
+    QList<OpenWeatherModel> forecast = OpenWeatherModel::fromForecast(result);
+    OpenWeatherModel::toDayForecast(context.forecast, forecast);
 
     context.forecastWaitForImages.clear();
 
-    QVariantMap todaymap = context.current.toCurrentMap(_units, _iconUrl);
-    if (!applyImageCache(todaymap, context.current))
+    WeatherItem todayitem = context.current.toItem(_units, _iconUrl, true);
+    if (!applyImageCache(todayitem, context.current))
         ready = false;
-    context.forecastWaitForImages.append(todaymap);
-    for (QList<WeatherModel>::iterator i = context.forecast.begin(); i != context.forecast.end(); ++i) {
+    context.forecastWaitForImages.append(todayitem);
+    for (QList<OpenWeatherModel>::iterator i = context.forecast.begin(); i != context.forecast.end(); ++i) {
         if (context.current.day() != i->day()) {
-            QVariantMap daymap = i->toDayMap(_units, _iconUrl);
-            if (!applyImageCache(daymap, *i))
+            WeatherItem dayitem = i->toItem(_units, _iconUrl, false);
+            if (!applyImageCache(dayitem, context.current))
                 ready = false;
-            context.forecastWaitForImages.append(daymap);
+            context.forecastWaitForImages.append(dayitem);
         }
         if (context.forecastWaitForImages.count() == 5)
             break;
@@ -327,7 +300,9 @@ void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
     if (ready) {
         if (_log.isDebugEnabled())
             qCDebug(_log) << "images ready, update " << context.entity->entity_id();
-        context.entity->updateAttrByIndex(WeatherDef::FORECAST, context.forecastWaitForImages);
+        WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
+        _model.addItems(context.forecastWaitForImages);
+        wi->setForecast(&_model);
         context.forecastWaitForImages.clear();
     }
 }
@@ -338,14 +313,18 @@ void OpenWeather::onAllImagesLoaded ()
         if (context.forecastWaitForImages.count() > 0) {
             if (_log.isDebugEnabled())
                 qCDebug(_log) << "images loaded, update " << context.entity->entity_id();
-            context.entity->updateAttrByIndex(WeatherDef::FORECAST, context.forecastWaitForImages);
+            WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
+            _model.addItems(context.forecastWaitForImages);
+            wi->setForecast(&_model);
             context.forecastWaitForImages.clear();
         }
     }
 }
-bool OpenWeather::applyImageCache(QVariantMap &map, WeatherModel &weatherModel) {
+bool OpenWeather::applyImageCache (WeatherItem& item, OpenWeatherModel& weatherModel)
+{
     QString filePath;
     bool ready = _imageCache.get(weatherModel.imageurl + "@2x.png", filePath);
-    map["imageurl"] = filePath;
+    item.setImageurl(filePath);
     return ready;
 }
+
