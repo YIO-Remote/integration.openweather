@@ -22,8 +22,11 @@ public:
     virtual ~OpenWeatherFactory() override {
     }
 
-    void        create              (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj) override;
-
+    void        create         (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj) override;
+    void        setLogEnabled  (QtMsgType msgType, bool enable) override
+    {
+        _log.setEnabled(msgType, enable);
+    }
 private:
     QLoggingCategory    _log;
 };
@@ -56,12 +59,12 @@ class OpenWeather : public Integration
 {
     Q_OBJECT
 public:
-    explicit	OpenWeather         (const QString& cacheDirectory, QObject* parent = nullptr);
+    explicit	OpenWeather         (const QString& cacheDirectory, QLoggingCategory& log, QObject* parent = nullptr);
     virtual     ~OpenWeather        () override;
 
     Q_INVOKABLE void setup  	    (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj);
-    Q_INVOKABLE void connect	    ();
-    Q_INVOKABLE void disconnect	    ();
+    void connect                    () override;
+    void disconnect                 () override;
 
 public slots:
     void        sendCommand         (const QString& type, const QString& entity_id, const QString& command, const QVariant& param);
@@ -71,7 +74,7 @@ public slots:
     void        onAllImagesLoaded   ();
 
 private:
-    static QLoggingCategory         _log;
+    QLoggingCategory&               _log;
 
     struct WeatherContext  {
         WeatherContext () :

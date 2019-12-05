@@ -27,7 +27,7 @@ void OpenWeatherFactory::create(const QVariantMap &config, QObject *entities, QO
     }
     for (int i = 0; i < data.length(); i++)
     {
-        OpenWeather* ow = new OpenWeather(cachePath, this);
+        OpenWeather* ow = new OpenWeather(cachePath, _log, this);
         ow->setup(data[i].toMap(), entities, notifications, api, configObj);
 
         QVariantMap d = data[i].toMap();
@@ -170,9 +170,8 @@ void OpenWeatherModel::toDayForecast(QList<OpenWeatherModel>& perDay, const QLis
 }
 
 
-QLoggingCategory OpenWeather::_log("openweather");
-
-OpenWeather::OpenWeather(const QString& cacheDirectory, QObject* parent) :
+OpenWeather::OpenWeather(const QString& cacheDirectory, QLoggingCategory& log, QObject* parent) :
+    _log(log),
     _apiUrl("https://api.openweathermap.org/data/2.5/"),
     _iconUrl("https://openweathermap.org/img/wn/"),
     _notifications(nullptr),
@@ -190,7 +189,6 @@ void OpenWeather::setup (const QVariantMap& config, QObject *entities, QObject *
     Q_UNUSED(api)
     Q_UNUSED(configObj)
 
-    _log.setEnabled(QtMsgType::QtDebugMsg, false);     // Default, only debug disabled
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "friendly_name")
             setFriendlyName(iter.value().toString());
@@ -202,24 +200,10 @@ void OpenWeather::setup (const QVariantMap& config, QObject *entities, QObject *
             _language = iter.value().toString();
         else if (iter.key() == "units")
             _units = iter.value().toString();
-        else if (iter.key() == "log") {
-            const QString& severity = iter.value().toString();
-            if (severity == "debug") {
-                _log.setEnabled(QtMsgType::QtDebugMsg, true);
-            }
-            else if (severity == "info") {
-                _log.setEnabled(QtMsgType::QtDebugMsg, false);
-                _log.setEnabled(QtMsgType::QtInfoMsg, true);
-            }
-            else if (severity == "warning") {
-                _log.setEnabled(QtMsgType::QtDebugMsg, false);
-                _log.setEnabled(QtMsgType::QtInfoMsg, false);
-                _log.setEnabled(QtMsgType::QtWarningMsg, true);
-            }
-        }
     }
     _notifications = qobject_cast<NotificationsInterface *> (notifications);
     _entities = qobject_cast<EntitiesInterface *> (entities);
+    qCDebug(_log) << "setup";
 }
 
 void OpenWeather::getCurrent (WeatherContext &context) {
@@ -267,6 +251,7 @@ void OpenWeather::onReplyCurrent (QVariantMap result, QVariant arg)
         setState(CONNECTED);
     WeatherContext& context = _contexts[arg.toInt()];
     context.current.fromCurrent(result);
+    context.entity->setState(WeatherDef::ONLINE);
     WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
     WeatherItem item = context.current.toItem(_units, _iconUrl, true);
     wi->setCurrent (item);
@@ -278,6 +263,7 @@ void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
     if (state() != CONNECTED)
         setState(CONNECTED);
     WeatherContext& context = _contexts[arg.toInt()];
+    context.entity->setState(WeatherDef::ONLINE);
     QList<OpenWeatherModel> forecast = OpenWeatherModel::fromForecast(result);
     OpenWeatherModel::toDayForecast(context.forecast, forecast);
 
