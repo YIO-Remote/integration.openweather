@@ -3,6 +3,9 @@
 #include "../remote-software/sources/configinterface.h"
 #include "../remote-software/sources/entities/weatherinterface.h"
 
+IntegrationInterface::~IntegrationInterface()
+{}
+
 OpenWeatherFactory::OpenWeatherFactory(QObject* parent) :
     _log("openweather")
 {
@@ -172,10 +175,10 @@ void OpenWeatherModel::toDayForecast(QList<OpenWeatherModel>& perDay, const QLis
 
 OpenWeather::OpenWeather(const QString& cacheDirectory, QLoggingCategory& log, QObject* parent) :
     _log(log),
+    _cycleHours(0),
     _apiUrl("https://api.openweathermap.org/data/2.5/"),
     _iconUrl("https://openweathermap.org/img/wn/"),
     _notifications(nullptr),
-    _entities(nullptr),
     _restClient(_apiUrl, this),
     _imageCache(_iconUrl, cacheDirectory, _log, true)
 {
@@ -188,21 +191,27 @@ void OpenWeather::setup (const QVariantMap& config, QObject *entities, QObject *
 {
     Q_UNUSED(api)
     Q_UNUSED(configObj)
+    Integration::setup (config, entities);
 
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
-        if (iter.key() == "friendly_name")
-            setFriendlyName(iter.value().toString());
-        else if (iter.key() == "id")
-            setIntegrationId(iter.value().toString());
-        else if (iter.key() == "key")
+        if (iter.key() == "key")
             _key = iter.value().toString();
         else if (iter.key() == "language")
             _language = iter.value().toString();
         else if (iter.key() == "units")
             _units = iter.value().toString();
+        else if (iter.key() == "cyclehours")
+            _cycleHours = iter.value().toInt();
     }
+    _requestTimer.setInterval(1000 * 3600);
+    _requestTimer.setSingleShot(false);
+    _requestTimer.start();
+    QObject::connect(&_requestTimer, &QTimer::timeout, this, [=](){
+        if (m_state != DISCONNECTED)
+            getAll();
+    });
+
     _notifications = qobject_cast<NotificationsInterface *> (notifications);
-    _entities = qobject_cast<EntitiesInterface *> (entities);
     qCDebug(_log) << "setup";
 }
 
@@ -214,26 +223,39 @@ void OpenWeather::getForecast (WeatherContext &context) {
     QString path = QString("forecast?q=%1&APPID=%2&units=%3&lang=%4").arg(context.entity->entity_id(), _key, _units, _language);
     _restClient.get (path, context.index, SLOT(onReplyForecast));
 }
-
+void OpenWeather::getAll()
+{
+    QDateTime now = QDateTime::currentDateTimeUtc();
+    if (now >= _nextRequest) {
+        _nextRequest = now.addSecs(_cycleHours * 3600);
+        for (int i = 0; i < _contexts.length(); i++) {
+            WeatherContext& context = _contexts[i];
+            getCurrent (context);
+        }
+    }
+}
 
 void OpenWeather::connect()
 {
-    QList<EntityInterface*> entities = _entities->getByIntegration(integrationId());
-    int idx = 0;
-    for (QList<EntityInterface*>::Iterator i = entities.begin(); i != entities.end(); ++i, idx++) {
-        _contexts.append(WeatherContext(idx, *i));
+    if (_contexts.count() == 0) {
+        QList<EntityInterface*> entities = m_entities->getByIntegration(integrationId());
+        int idx = 0;
+        for (QList<EntityInterface*>::Iterator i = entities.begin(); i != entities.end(); ++i, idx++) {
+            _contexts.append(WeatherContext(idx, *i));
+        }
     }
     qCDebug(_log) << "connect";
     setState(CONNECTING);
 
-    // @@@
-    getCurrent(_contexts[0]);
-    //getForecast(_contexts[0]);
+    getAll();
 }
 void OpenWeather::disconnect()
 {
     qCDebug(_log) << "disconnect";
     setState(DISCONNECTED);
+}
+void OpenWeather::leaveStandby() {
+    getAll();
 }
 void OpenWeather::sendCommand(const QString& type, const QString& id, const QString& cmd, const QVariant& param)
 {
@@ -255,7 +277,7 @@ void OpenWeather::onReplyCurrent (QVariantMap result, QVariant arg)
     WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
     WeatherItem item = context.current.toItem(_units, _iconUrl, true);
     wi->setCurrent (item);
-    getForecast(_contexts[0]);  // @@@
+    getForecast(context);
 }
 void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
 {

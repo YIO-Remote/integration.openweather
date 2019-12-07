@@ -2,8 +2,10 @@
 #pragma once
 #include <QObject>
 #include <QLoggingCategory>
+#include <QTimer>
+
 #include "../remote-software/sources/integrations/integration.h"
-#include "../remote-software/sources/integrations/integrationinterface.h"
+#include "../remote-software/sources/integrations/plugininterface.h"
 #include "../remote-software/sources/entities/entitiesinterface.h"
 #include "../remote-software/sources/entities/weatherinterface.h"
 #include "../remote-software/sources/notificationsinterface.h"
@@ -11,11 +13,11 @@
 #include "ImageCache.h"
 #include "WeatherModel.h"
 
-class OpenWeatherFactory : public IntegrationInterface
+class OpenWeatherFactory : public PluginInterface
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "YIO.IntegrationInterface" FILE "openweather.json")
-    Q_INTERFACES(IntegrationInterface)
+    Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openweather.json")
+    Q_INTERFACES(PluginInterface)
 
 public:
     explicit OpenWeatherFactory(QObject* parent = nullptr);
@@ -63,11 +65,12 @@ public:
     virtual     ~OpenWeather        () override;
 
     Q_INVOKABLE void setup  	    (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj);
-    void connect                    () override;
-    void disconnect                 () override;
+    void        connect             () override;
+    void        disconnect          () override;
+    void        sendCommand         (const QString& type, const QString& entity_id, const QString& command, const QVariant& param) override;
+    void        leaveStandby        () override;
 
 public slots:
-    void        sendCommand         (const QString& type, const QString& entity_id, const QString& command, const QVariant& param);
     void        onError             (const QString& error);
     void        onReplyCurrent      (QVariantMap result, QVariant arg);
     void        onReplyForecast     (QVariantMap result, QVariant arg);
@@ -94,7 +97,9 @@ private:
     bool applyImageCache            (WeatherItem& item, OpenWeatherModel& weatherModel);
     void getCurrent                 (WeatherContext &context);
     void getForecast                (WeatherContext &context);
+    void getAll                     ();
 
+    int                             _cycleHours;
     QString                         _apiUrl;
     QString                         _iconUrl;
     QString                         _key;
@@ -103,7 +108,8 @@ private:
     QList<WeatherContext>           _contexts;
     WeatherModel                    _model;
     NotificationsInterface*         _notifications;
-    EntitiesInterface*              _entities;
     RestClient                      _restClient;
     ImageCache                      _imageCache;
+    QDateTime                       _nextRequest;
+    QTimer                          _requestTimer;
 };
