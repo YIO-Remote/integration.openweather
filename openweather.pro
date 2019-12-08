@@ -9,7 +9,7 @@ include(../remote-software/qmake-destination-path.pri)
 HEADERS         = OpenWeather.h RestClient.h ImageCache.h WeatherModel.h \
                   ../remote-software/sources/entities/weatherinterface.h \
                   ../remote-software/sources/integrations/integration.h \
-                  ../remote-software/sources/integrations/plugininterface.h \
+                  ../remote-software/sources/integrations/plugininterface.h
 
 SOURCES         = OpenWeather.cpp RestClient.cpp ImageCache.cpp WeatherModel.cpp
 
