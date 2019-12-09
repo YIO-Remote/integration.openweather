@@ -21,6 +21,7 @@
  *****************************************************************************/
 
 #include <QDir>
+#include <QJsonDocument>
 #include "OpenWeather.h"
 #include "../remote-software/sources/configinterface.h"
 #include "../remote-software/sources/entities/weatherinterface.h"
@@ -28,13 +29,13 @@
 IntegrationInterface::~IntegrationInterface()
 {}
 
-OpenWeatherFactory::OpenWeatherFactory(QObject* parent) :
+OpenWeatherPlugin::OpenWeatherPlugin(QObject* parent) :
     _log("openweather")
 {
     Q_UNUSED(parent)
 }
 
-void OpenWeatherFactory::create(const QVariantMap &config, QObject *entities, QObject *notifications, QObject *api, QObject *configObj)
+void OpenWeatherPlugin::create(const QVariantMap &config, QObject *entities, QObject *notifications, QObject *api, QObject *configObj)
 {
     QMap<QObject *, QVariant>   returnData;
     QVariantList                data;
@@ -201,8 +202,8 @@ OpenWeather::OpenWeather(const QString& cacheDirectory, QLoggingCategory& log, Q
     _apiUrl("https://api.openweathermap.org/data/2.5/"),
     _iconUrl("https://openweathermap.org/img/wn/"),
     _notifications(nullptr),
-    _restClient(_apiUrl, this),
-    _imageCache(_iconUrl, cacheDirectory, _log, true)
+    _imageCache(_iconUrl, cacheDirectory, _log, true),
+    _nam(this)
 {
     setParent (parent);
     QObject::connect (&_imageCache, &ImageCache::allLoaded, this, &OpenWeather::onAllImagesLoaded);
@@ -237,13 +238,43 @@ void OpenWeather::setup (const QVariantMap& config, QObject *entities, QObject *
     qCDebug(_log) << "setup";
 }
 
-void OpenWeather::getCurrent (WeatherContext &context) {
-    QString path = QString("weather?q=%1&APPID=%2&units=%3&lang=%4").arg(context.entity->entity_id(), _key, _units, _language);
-    _restClient.get (path, context.index, SLOT(onReplyCurrent));
+void OpenWeather::getCurrent (WeatherContext* context) {
+    Q_ASSERT(context != nullptr);
+    QString path = QString("weather?q=%1&APPID=%2&units=%3&lang=%4").arg(context->entity->entity_id(), _key, _units, _language);
+    QNetworkRequest request(_apiUrl + path);
+    request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
+    QNetworkReply* reply = _nam.get (request);
+    QObject::connect (reply, &QNetworkReply::finished, this,  [=] () {
+        QString answer = reply->readAll();
+        // convert to json
+        QJsonParseError parseerror;
+        QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+        if (parseerror.error != QJsonParseError::NoError) {
+            jsonError ("JSON error : " + parseerror.errorString());
+            return;
+        }
+        QVariantMap map = doc.toVariant().toMap();
+        onReplyCurrent(context, map);
+    });
 }
-void OpenWeather::getForecast (WeatherContext &context) {
-    QString path = QString("forecast?q=%1&APPID=%2&units=%3&lang=%4").arg(context.entity->entity_id(), _key, _units, _language);
-    _restClient.get (path, context.index, SLOT(onReplyForecast));
+void OpenWeather::getForecast (WeatherContext* context) {
+    Q_ASSERT(context != nullptr);
+    QString path = QString("forecast?q=%1&APPID=%2&units=%3&lang=%4").arg(context->entity->entity_id(), _key, _units, _language);
+    QNetworkRequest request(_apiUrl + path);
+    request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
+    QNetworkReply* reply = _nam.get (request);
+    QObject::connect (reply, &QNetworkReply::finished, this,  [=] () {
+        QString answer = reply->readAll();
+        // convert to json
+        QJsonParseError parseerror;
+        QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+        if (parseerror.error != QJsonParseError::NoError) {
+            jsonError ("JSON error : " + parseerror.errorString());
+            return;
+        }
+        QVariantMap map = doc.toVariant().toMap();
+        onReplyForecast (context, map);
+    });
 }
 void OpenWeather::getAll()
 {
@@ -252,7 +283,7 @@ void OpenWeather::getAll()
         _nextRequest = now.addSecs(_cycleHours * 3600);
         for (int i = 0; i < _contexts.length(); i++) {
             WeatherContext& context = _contexts[i];
-            getCurrent (context);
+            getCurrent (&context);
         }
     }
 }
@@ -284,56 +315,56 @@ void OpenWeather::sendCommand(const QString& type, const QString& id, const QStr
     if (_log.isDebugEnabled())
         qCDebug(_log) << "sendCommand " << type << " " << id << " " << cmd << " " << param.toString();
 }
-void OpenWeather::onError (const QString& error)
+void OpenWeather::jsonError (const QString& error)
 {
     Q_UNUSED(error)
     qCWarning(_log) << "Error:" << error;
 }
-void OpenWeather::onReplyCurrent (QVariantMap result, QVariant arg)
+void OpenWeather::onReplyCurrent (WeatherContext* context, QVariantMap& result)
 {
     if (state() != CONNECTED)
         setState(CONNECTED);
-    WeatherContext& context = _contexts[arg.toInt()];
-    context.current.fromCurrent(result);
-    context.entity->setState(WeatherDef::ONLINE);
-    WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
-    WeatherItem item = context.current.toItem(_units, _iconUrl, true);
+    Q_ASSERT(context != nullptr);
+    context->current.fromCurrent(result);
+    context->entity->setState(WeatherDef::ONLINE);
+    WeatherInterface* wi = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
+    WeatherItem item = context->current.toItem(_units, _iconUrl, true);
     wi->setCurrent (item);
     getForecast(context);
 }
-void OpenWeather::onReplyForecast(QVariantMap result, QVariant arg)
+void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result)
 {
     bool ready = true;
     if (state() != CONNECTED)
         setState(CONNECTED);
-    WeatherContext& context = _contexts[arg.toInt()];
-    context.entity->setState(WeatherDef::ONLINE);
+    Q_ASSERT(context != nullptr);
+    context->entity->setState(WeatherDef::ONLINE);
     QList<OpenWeatherModel> forecast = OpenWeatherModel::fromForecast(result);
-    OpenWeatherModel::toDayForecast(context.forecast, forecast);
+    OpenWeatherModel::toDayForecast(context->forecast, forecast);
 
-    context.forecastWaitForImages.clear();
+    context->forecastWaitForImages.clear();
 
-    WeatherItem todayitem = context.current.toItem(_units, _iconUrl, true);
-    if (!applyImageCache(todayitem, context.current))
+    WeatherItem todayitem = context->current.toItem(_units, _iconUrl, true);
+    if (!applyImageCache(todayitem, context->current))
         ready = false;
-    context.forecastWaitForImages.append(todayitem);
-    for (QList<OpenWeatherModel>::iterator i = context.forecast.begin(); i != context.forecast.end(); ++i) {
-        if (context.current.day() != i->day()) {
+    context->forecastWaitForImages.append(todayitem);
+    for (QList<OpenWeatherModel>::iterator i = context->forecast.begin(); i != context->forecast.end(); ++i) {
+        if (context->current.day() != i->day()) {
             WeatherItem dayitem = i->toItem(_units, _iconUrl, false);
-            if (!applyImageCache(dayitem, context.current))
+            if (!applyImageCache(dayitem, context->current))
                 ready = false;
-            context.forecastWaitForImages.append(dayitem);
+            context->forecastWaitForImages.append(dayitem);
         }
-        if (context.forecastWaitForImages.count() == 5)
+        if (context->forecastWaitForImages.count() == 5)
             break;
     }
     if (ready) {
         if (_log.isDebugEnabled())
-            qCDebug(_log) << "images ready, update " << context.entity->entity_id();
-        WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
-        _model.addItems(context.forecastWaitForImages);
+            qCDebug(_log) << "images ready, update " << context->entity->entity_id();
+        WeatherInterface* wi = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
+        _model.addItems(context->forecastWaitForImages);
         wi->setForecast(&_model);
-        context.forecastWaitForImages.clear();
+        context->forecastWaitForImages.clear();
     }
 }
 void OpenWeather::onAllImagesLoaded ()

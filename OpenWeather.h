@@ -30,19 +30,18 @@
 #include "../remote-software/sources/entities/entitiesinterface.h"
 #include "../remote-software/sources/entities/weatherinterface.h"
 #include "../remote-software/sources/notificationsinterface.h"
-#include "RestClient.h"
 #include "ImageCache.h"
 #include "WeatherModel.h"
 
-class OpenWeatherFactory : public PluginInterface
+class OpenWeatherPlugin : public PluginInterface
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openweather.json")
     Q_INTERFACES(PluginInterface)
 
 public:
-    explicit OpenWeatherFactory(QObject* parent = nullptr);
-    virtual ~OpenWeatherFactory() override {
+    explicit OpenWeatherPlugin(QObject* parent = nullptr);
+    virtual ~OpenWeatherPlugin() override {
     }
 
     void        create         (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj) override;
@@ -92,13 +91,9 @@ public:
     void        leaveStandby        () override;
 
 public slots:
-    void        onError             (const QString& error);
-    void        onReplyCurrent      (QVariantMap result, QVariant arg);
-    void        onReplyForecast     (QVariantMap result, QVariant arg);
     void        onAllImagesLoaded   ();
 
 private:
-    QLoggingCategory&               _log;
 
     struct WeatherContext  {
         WeatherContext () :
@@ -115,11 +110,16 @@ private:
         QList<OpenWeatherModel> forecast;
         QList<WeatherItem>      forecastWaitForImages;
     };
+    void jsonError                  (const QString& error);
+    void onReplyCurrent             (WeatherContext* context, QVariantMap& result);
+    void onReplyForecast            (WeatherContext* context, QVariantMap& result);
+
     bool applyImageCache            (WeatherItem& item, OpenWeatherModel& weatherModel);
-    void getCurrent                 (WeatherContext &context);
-    void getForecast                (WeatherContext &context);
+    void getCurrent                 (WeatherContext* context);
+    void getForecast                (WeatherContext* context);
     void getAll                     ();
 
+    QLoggingCategory&               _log;
     int                             _cycleHours;
     QString                         _apiUrl;
     QString                         _iconUrl;
@@ -129,8 +129,8 @@ private:
     QList<WeatherContext>           _contexts;
     WeatherModel                    _model;
     NotificationsInterface*         _notifications;
-    RestClient                      _restClient;
     ImageCache                      _imageCache;
     QDateTime                       _nextRequest;
     QTimer                          _requestTimer;
+    QNetworkAccessManager           _nam;
 };
