@@ -342,7 +342,7 @@ void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result)
     QList<OpenWeatherModel> forecast = OpenWeatherModel::fromForecast(result);
     OpenWeatherModel::toDayForecast(context->forecast, forecast);
 
-    context->forecastWaitForImages.clear();
+   context->forecastWaitForImages.clear();
 
     WeatherItem todayitem = context->current.toItem(_units, _iconUrl, true);
     if (!applyImageCache(todayitem, context->current))
@@ -351,7 +351,7 @@ void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result)
     for (QList<OpenWeatherModel>::iterator i = context->forecast.begin(); i != context->forecast.end(); ++i) {
         if (context->current.day() != i->day()) {
             WeatherItem dayitem = i->toItem(_units, _iconUrl, false);
-            if (!applyImageCache(dayitem, context->current))
+            if (!applyImageCache(dayitem, *i))
                 ready = false;
             context->forecastWaitForImages.append(dayitem);
         }
