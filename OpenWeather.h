@@ -87,7 +87,7 @@ public:
     Q_INVOKABLE void setup  	    (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj);
     void        connect             () override;
     void        disconnect          () override;
-    void        sendCommand         (const QString& type, const QString& entity_id, const QString& command, const QVariant& param) override;
+    void        sendCommand         (const QString& type, const QString& entity_id, int command, const QVariant& param) override;
     void        leaveStandby        () override;
 
 public slots:

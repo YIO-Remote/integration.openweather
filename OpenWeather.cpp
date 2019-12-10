@@ -310,7 +310,7 @@ void OpenWeather::disconnect()
 void OpenWeather::leaveStandby() {
     getAll();
 }
-void OpenWeather::sendCommand(const QString& type, const QString& id, const QString& cmd, const QVariant& param)
+void OpenWeather::sendCommand(const QString& type, const QString& id, int cmd, const QVariant& param)
 {
     if (_log.isDebugEnabled())
         qCDebug(_log) << "sendCommand " << type << " " << id << " " << cmd << " " << param.toString();
