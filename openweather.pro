@@ -1,7 +1,7 @@
-TEMPLATE     = lib
-CONFIG      += c++14 plugin
-QT          += network core quick
-DEFINES     += DEBUG
+TEMPLATE  = lib
+CONFIG   += c++14 plugin
+QT       += network core quick
+DEFINES  += DEBUG
 
 INTG_LIB_PATH = $$(YIO_SRC)
 isEmpty(INTG_LIB_PATH) {
@@ -20,19 +20,19 @@ isEmpty(INTG_LIB_PATH) {
     error( "Cannot find the yio-plugin-lib.pri file!" )
 }
 
-HEADERS     += \
+HEADERS  += \
     src/OpenWeather.h \
     src/ImageCache.h \
     src/WeatherModel.h
-SOURCES     += \
+SOURCES  += \
     src/OpenWeather.cpp \
     src/ImageCache.cpp \
     src/WeatherModel.cpp
 
-TARGET       = openweather
+TARGET    = openweather
 
-# Configure destination path by "Operating System/Compiler/Processor Architecture/Build Configuration"
-DESTDIR = $$PWD/../binaries/$$DESTINATION_PATH/plugins
+# Configure destination path. DESTDIR is set in qmake-destination-path.pri
+DESTDIR = $$DESTDIR/plugins
 OBJECTS_DIR = $$PWD/build/$$DESTINATION_PATH/obj
 MOC_DIR = $$PWD/build/$$DESTINATION_PATH/moc
 RCC_DIR = $$PWD/build/$$DESTINATION_PATH/qrc
