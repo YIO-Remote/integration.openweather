@@ -1,19 +1,35 @@
-TEMPLATE    = lib
-CONFIG      += plugin
+TEMPLATE     = lib
+CONFIG      += c++14 plugin
 QT          += network core quick
 DEFINES     += DEBUG
 
-include(../remote-software/qmake-target-platform.pri)
-include(../remote-software/qmake-destination-path.pri)
+INTG_LIB_PATH = $$(YIO_SRC)
+isEmpty(INTG_LIB_PATH) {
+    INTG_LIB_PATH = $$clean_path($$PWD/../integrations.library)
+    message("Environment variables YIO_SRC not defined! Using '$$INTG_LIB_PATH' for integrations.library project.")
+} else {
+    INTG_LIB_PATH = $$(YIO_SRC)/integrations.library
+    message("YIO_SRC is set: using '$$INTG_LIB_PATH' for integrations.library project.")
+}
 
-HEADERS         = OpenWeather.h ImageCache.h WeatherModel.h \
-                  ../remote-software/sources/entities/weatherinterface.h \
-                  ../remote-software/sources/integrations/integration.h \
-                  ../remote-software/sources/integrations/plugininterface.h
+! include($$INTG_LIB_PATH/qmake-destination-path.pri) {
+    error( "Couldn't find the qmake-destination-path.pri file!" )
+}
 
-SOURCES         = OpenWeather.cpp ImageCache.cpp WeatherModel.cpp
+! include($$INTG_LIB_PATH/yio-plugin-lib.pri) {
+    error( "Cannot find the yio-plugin-lib.pri file!" )
+}
 
-TARGET          = openweather
+HEADERS     += \
+    src/OpenWeather.h \
+    src/ImageCache.h \
+    src/WeatherModel.h
+SOURCES     += \
+    src/OpenWeather.cpp \
+    src/ImageCache.cpp \
+    src/WeatherModel.cpp
+
+TARGET       = openweather
 
 # Configure destination path by "Operating System/Compiler/Processor Architecture/Build Configuration"
 DESTDIR = $$PWD/../binaries/$$DESTINATION_PATH/plugins
