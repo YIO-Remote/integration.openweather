@@ -43,8 +43,8 @@ class OpenWeatherPlugin : public PluginInterface {
     explicit OpenWeatherPlugin(QObject* parent = nullptr);
     ~OpenWeatherPlugin() override {}
 
-    void create(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                QObject* configObj) override;
+    void create(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
+                YioAPIInterface* api, ConfigInterface* configObj) override;
     void setLogEnabled(QtMsgType msgType, bool enable) override { _log.setEnabled(msgType, enable); }
 
  private:
@@ -84,8 +84,8 @@ class OpenWeather : public Integration {
                          QObject*          parent = nullptr);
     ~OpenWeather() override;
 
-    Q_INVOKABLE void setup(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                           QObject* configObj);
+    Q_INVOKABLE void setup(const QVariantMap& config, EntitiesInterface* entities,
+                           NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj);
     void             connect() override;
     void             disconnect() override;
     void sendCommand(const QString& type, const QString& entity_id, int command, const QVariant& param) override;
