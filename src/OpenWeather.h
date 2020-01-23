@@ -33,22 +33,23 @@
 #include "yio-interface/notificationsinterface.h"
 #include "yio-interface/plugininterface.h"
 #include "yio-plugin/integration.h"
+#include "yio-plugin/plugin.h"
 
-class OpenWeatherPlugin : public PluginInterface {
+const bool USE_WORKER_THREAD = false;
+
+class OpenWeatherPlugin : public Plugin {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openweather.json")
     Q_INTERFACES(PluginInterface)
+    Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openweather.json")
 
  public:
-    explicit OpenWeatherPlugin(QObject* parent = nullptr);
-    ~OpenWeatherPlugin() override {}
+    OpenWeatherPlugin();
 
-    void create(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
-                YioAPIInterface* api, ConfigInterface* configObj) override;
-    void setLogEnabled(QtMsgType msgType, bool enable) override { _log.setEnabled(msgType, enable); }
-
- private:
-    QLoggingCategory _log;
+    // Plugin interface
+ protected:
+    Integration* createIntegration(const QVariantMap& config, EntitiesInterface* entities,
+                                   NotificationsInterface* notifications, YioAPIInterface* api,
+                                   ConfigInterface* configObj) override;
 };
 
 struct OpenWeatherModel {
@@ -79,17 +80,15 @@ class OpenWeather : public Integration {
     Q_OBJECT
 
  public:
-    explicit OpenWeather(const QString&    cacheDirectory,
-                         QLoggingCategory& log,  // NOLINT we need a non-const reference
-                         QObject*          parent = nullptr);
-    ~OpenWeather() override;
+    explicit OpenWeather(const QString& cacheDirectory, const QVariantMap& config, EntitiesInterface* entities,
+                         NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj,
+                         Plugin* plugin);
 
-    Q_INVOKABLE void setup(const QVariantMap& config, EntitiesInterface* entities,
-                           NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj);
-    void             connect() override;
-    void             disconnect() override;
-    void sendCommand(const QString& type, const QString& entity_id, int command, const QVariant& param) override;
-    void leaveStandby() override;
+    Q_INVOKABLE void connect() override;
+    Q_INVOKABLE void disconnect() override;
+    Q_INVOKABLE void sendCommand(const QString& type, const QString& entity_id, int command,
+                                 const QVariant& param) override;
+    Q_INVOKABLE void leaveStandby() override;
 
  public slots:  // NOLINT open issue: https://github.com/cpplint/cpplint/pull/99
     void onAllImagesLoaded();
@@ -113,18 +112,16 @@ class OpenWeather : public Integration {
     void getForecast(WeatherContext* context);
     void getAll();
 
-    QLoggingCategory&       _log;
-    int                     _cycleHours;
-    QString                 _apiUrl;
-    QString                 _iconUrl;
-    QString                 _key;
-    QString                 _language;
-    QString                 _units;
-    QList<WeatherContext>   _contexts;
-    WeatherModel            _model;
-    NotificationsInterface* _notifications;
-    ImageCache              _imageCache;
-    QDateTime               _nextRequest;
-    QTimer                  _requestTimer;
-    QNetworkAccessManager   _nam;
+    int                   _cycleHours;
+    QString               _apiUrl;
+    QString               _iconUrl;
+    QString               _key;
+    QString               _language;
+    QString               _units;
+    QList<WeatherContext> _contexts;
+    WeatherModel          _model;
+    ImageCache            _imageCache;
+    QDateTime             _nextRequest;
+    QTimer                _requestTimer;
+    QNetworkAccessManager _nam;
 };

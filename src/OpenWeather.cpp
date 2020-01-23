@@ -28,13 +28,11 @@
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/weatherinterface.h"
 
-IntegrationInterface::~IntegrationInterface() {}
+OpenWeatherPlugin::OpenWeatherPlugin() : Plugin("openweather", USE_WORKER_THREAD) {}
 
-OpenWeatherPlugin::OpenWeatherPlugin(QObject* parent) : _log("openweather") { Q_UNUSED(parent) }
-
-void OpenWeatherPlugin::create(const QVariantMap& config, EntitiesInterface* entities,
-                               NotificationsInterface* notifications, YioAPIInterface* api,
-                               ConfigInterface* configObj) {
+Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
+                                                  NotificationsInterface* notifications, YioAPIInterface* api,
+                                                  ConfigInterface* configObj) {
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 
@@ -43,23 +41,7 @@ void OpenWeatherPlugin::create(const QVariantMap& config, EntitiesInterface* ent
         QDir().mkdir(cachePath);
     }
 
-    for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
-        if (iter.key() == "data") {
-            data = iter.value().toList();
-            break;
-        }
-    }
-    for (int i = 0; i < data.length(); i++) {
-        OpenWeather* ow = new OpenWeather(cachePath, _log, this);
-        ow->setup(data[i].toMap(), entities, notifications, api, configObj);
-
-        QVariantMap d = data[i].toMap();
-        d.insert("type", config.value("type").toString());
-        returnData.insert(ow, d);
-    }
-    if (data.length() > 0) {
-        emit createDone(returnData);
-    }
+    return new OpenWeather(cachePath, config, entities, notifications, api, configObj, this);
 }
 
 WeatherItem OpenWeatherModel::toItem(const QString& units, const QString& iconUrl, bool current) {
@@ -194,25 +176,16 @@ void OpenWeatherModel::toDayForecast(QList<OpenWeatherModel>& perDay, const QLis
     }
 }
 
-OpenWeather::OpenWeather(const QString& cacheDirectory, QLoggingCategory& log, QObject* parent)
-    : _log(log),
+OpenWeather::OpenWeather(const QString& cacheDirectory, const QVariantMap& config, EntitiesInterface* entities,
+                         NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj,
+                         Plugin* plugin)
+    : Integration(config, entities, notifications, api, configObj, plugin),
       _cycleHours(0),
       _apiUrl("https://api.openweathermap.org/data/2.5/"),
       _iconUrl("https://openweathermap.org/img/wn/"),
-      _notifications(nullptr),
-      _imageCache(_iconUrl, cacheDirectory, _log, true),
+      _imageCache(_iconUrl, cacheDirectory, m_logCategory, true),
       _nam(this) {
-    setParent(parent);
     QObject::connect(&_imageCache, &ImageCache::allLoaded, this, &OpenWeather::onAllImagesLoaded);
-}
-
-OpenWeather::~OpenWeather() {}
-
-void OpenWeather::setup(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
-                        YioAPIInterface* api, ConfigInterface* configObj) {
-    Q_UNUSED(api)
-    Q_UNUSED(configObj)
-    Integration::setup(config, entities);
 
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "key") {
@@ -234,8 +207,8 @@ void OpenWeather::setup(const QVariantMap& config, EntitiesInterface* entities, 
         }
     });
 
-    _notifications = notifications;
-    qCDebug(_log) << "setup";
+    m_notifications = notifications;
+    qCDebug(m_logCategory) << "setup";
 }
 
 void OpenWeather::getCurrent(WeatherContext* context) {
@@ -299,28 +272,28 @@ void OpenWeather::connect() {
             _contexts.append(WeatherContext(idx, *i));
         }
     }
-    qCDebug(_log) << "connect";
+    qCDebug(m_logCategory) << "connect";
     setState(CONNECTING);
 
     getAll();
 }
 
 void OpenWeather::disconnect() {
-    qCDebug(_log) << "disconnect";
+    qCDebug(m_logCategory) << "disconnect";
     setState(DISCONNECTED);
 }
 
 void OpenWeather::leaveStandby() { getAll(); }
 
 void OpenWeather::sendCommand(const QString& type, const QString& id, int cmd, const QVariant& param) {
-    if (_log.isDebugEnabled()) {
-        qCDebug(_log) << "sendCommand " << type << " " << id << " " << cmd << " " << param.toString();
+    if (m_logCategory.isDebugEnabled()) {
+        qCDebug(m_logCategory) << "sendCommand " << type << " " << id << " " << cmd << " " << param.toString();
     }
 }
 
 void OpenWeather::jsonError(const QString& error) {
     Q_UNUSED(error)
-    qCWarning(_log) << "Error:" << error;
+    qCWarning(m_logCategory) << "Error:" << error;
 }
 
 void OpenWeather::onReplyCurrent(WeatherContext* context, QVariantMap& result) {
@@ -366,8 +339,8 @@ void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result) 
         }
     }
     if (ready) {
-        if (_log.isDebugEnabled()) {
-            qCDebug(_log) << "images ready, update " << context->entity->entity_id();
+        if (m_logCategory.isDebugEnabled()) {
+            qCDebug(m_logCategory) << "images ready, update " << context->entity->entity_id();
         }
         WeatherInterface* wi = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
         _model.addItems(context->forecastWaitForImages);
@@ -380,8 +353,8 @@ void OpenWeather::onAllImagesLoaded() {
     for (int i = 0; i < _contexts.length(); i++) {
         WeatherContext& context = _contexts[i];
         if (context.forecastWaitForImages.count() > 0) {
-            if (_log.isDebugEnabled()) {
-                qCDebug(_log) << "images loaded, update " << context.entity->entity_id();
+            if (m_logCategory.isDebugEnabled()) {
+                qCDebug(m_logCategory) << "images loaded, update " << context.entity->entity_id();
             }
             WeatherInterface* wi = static_cast<WeatherInterface*>(context.entity->getSpecificInterface());
             _model.addItems(context.forecastWaitForImages);
