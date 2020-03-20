@@ -28,11 +28,13 @@
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/weatherinterface.h"
 
-OpenWeatherPlugin::OpenWeatherPlugin() : Plugin("openweather", USE_WORKER_THREAD) {}
+OpenWeatherPlugin::OpenWeatherPlugin() : Plugin("openweather", NO_WORKER_THREAD) {}
 
 Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
                                                   NotificationsInterface* notifications, YioAPIInterface* api,
                                                   ConfigInterface* configObj) {
+    qCInfo(m_logCategory) << "Creating OpenWeather integration plugin" << PLUGIN_VERSION;
+
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 

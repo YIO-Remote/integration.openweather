@@ -1,3 +1,7 @@
+# Plugin VERSION
+OW_VERSION = $$system(git describe --match "v[0-9]*" --tags HEAD --always)
+DEFINES += PLUGIN_VERSION=\\\"$$OW_VERSION\\\"
+
 TEMPLATE  = lib
 CONFIG   += c++14 plugin
 QT       += network core quick
@@ -20,6 +24,9 @@ isEmpty(INTG_LIB_PATH) {
     error( "Cannot find the yio-plugin-lib.pri file!" )
 }
 
+QMAKE_SUBSTITUTES += openweather.json.in
+# output path must be included for the output file from QMAKE_SUBSTITUTES
+INCLUDEPATH += $$OUT_PWD
 HEADERS  += \
     src/OpenWeather.h \
     src/ImageCache.h \
