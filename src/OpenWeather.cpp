@@ -24,6 +24,7 @@
 
 #include <QDir>
 #include <QJsonDocument>
+#include <QStandardPaths>
 
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/weatherinterface.h"
@@ -38,9 +39,13 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 
-    QString cachePath = configObj->getContextProperty("configPath").toString() + "/openweather";
+    QString cachePath = configObj->getSettings().value("configPath").toString() + "/roon";
     if (!QDir(cachePath).exists()) {
-        QDir().mkdir(cachePath);
+        if (!QDir().mkdir(cachePath)) {
+            cachePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+            qCCritical(m_logCategory) << "Invalid configuration path, using system temp directory for caching:"
+                                      << cachePath;
+        }
     }
 
     return new OpenWeather(cachePath, config, entities, notifications, api, configObj, this);
