@@ -86,7 +86,7 @@ class OpenWeather : public Integration {
 
     Q_INVOKABLE void connect() override;
     Q_INVOKABLE void disconnect() override;
-    Q_INVOKABLE void sendCommand(const QString& type, const QString& entity_id, int command,
+    Q_INVOKABLE void sendCommand(const QString& type, const QString& entityId, int command,
                                  const QVariant& param) override;
     Q_INVOKABLE void leaveStandby() override;
 
