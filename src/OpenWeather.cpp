@@ -54,7 +54,7 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
 WeatherItem OpenWeatherModel::toItem(const QString& units, const QString& iconUrl, bool current) {
     Q_UNUSED(units)
     WeatherItem item;
-    QDate       dt = QDateTime::fromSecsSinceEpoch(date).date();
+    QDate       dt      = QDateTime::fromSecsSinceEpoch(date).date();
     QString     dayname = QDate::shortDayName(dt.dayOfWeek());
 
     if (dayname.endsWith('.')) {
@@ -95,41 +95,41 @@ OpenWeatherModel::OpenWeatherModel()
     : date(0), temp(0), tempmin(0), tempmax(0), rain(0), snow(0), wind(0), humidity(0) {}
 
 void OpenWeatherModel::fromCurrent(const QVariantMap& current) {
-    date = current["dt"].toInt();
+    date             = current["dt"].toInt();
     QVariantMap main = current["main"].toMap();
-    humidity = main["humidity"].toInt();
-    temp = main["temp"].toInt();
-    tempmin = main["temp_min"].toInt();
-    tempmax = main["temp_max"].toInt();
+    humidity         = main["humidity"].toInt();
+    temp             = main["temp"].toInt();
+    tempmin          = main["temp_min"].toInt();
+    tempmax          = main["temp_max"].toInt();
     if (current.contains("rain")) {
         QVariantMap r = current["rain"].toMap();
-        rain = r["3h"].toInt();
+        rain          = r["3h"].toInt();
     }
     if (current.contains("snow")) {
         QVariantMap s = current["snow"].toMap();
-        snow = s["3h"].toInt();
+        snow          = s["3h"].toInt();
     }
     if (current.contains("wind")) {
         QVariantMap w = current["wind"].toMap();
-        wind = w["speed"].toInt();
+        wind          = w["speed"].toInt();
     }
     QVariantList weathers = current["weather"].toList();
-    QVariantMap  weather = weathers.first().toMap();
-    description = weather["description"].toString();
-    imageurl = weather["icon"].toString();
+    QVariantMap  weather  = weathers.first().toMap();
+    description           = weather["description"].toString();
+    imageurl              = weather["icon"].toString();
 }
 
 void OpenWeatherModel::init(const OpenWeatherModel& model) {
-    date = model.date;
-    temp = model.temp;
-    tempmin = model.tempmin;
-    tempmax = model.tempmax;
-    rain = model.rain;
-    snow = model.snow;
-    wind = model.wind;
-    humidity = model.humidity;
+    date        = model.date;
+    temp        = model.temp;
+    tempmin     = model.tempmin;
+    tempmax     = model.tempmax;
+    rain        = model.rain;
+    snow        = model.snow;
+    wind        = model.wind;
+    humidity    = model.humidity;
     description = model.description;
-    imageurl = model.imageurl;
+    imageurl    = model.imageurl;
 }
 
 void OpenWeatherModel::add(const OpenWeatherModel& model) {
@@ -146,9 +146,9 @@ void OpenWeatherModel::add(const OpenWeatherModel& model) {
         wind = model.wind;
     }
     if (model.hour() / 3 == 15 / 3) {
-        humidity = model.humidity;
+        humidity    = model.humidity;
         description = model.description;
-        imageurl = model.imageurl;
+        imageurl    = model.imageurl;
     }
 }
 
@@ -274,7 +274,7 @@ void OpenWeather::getAll() {
 void OpenWeather::connect() {
     if (_contexts.count() == 0) {
         QList<EntityInterface*> entities = m_entities->getByIntegration(integrationId());
-        int                     idx = 0;
+        int                     idx      = 0;
         for (QList<EntityInterface*>::Iterator i = entities.begin(); i != entities.end(); ++i, idx++) {
             _contexts.append(WeatherContext(idx, *i));
         }
@@ -292,9 +292,9 @@ void OpenWeather::disconnect() {
 
 void OpenWeather::leaveStandby() { getAll(); }
 
-void OpenWeather::sendCommand(const QString& type, const QString& id, int cmd, const QVariant& param) {
+void OpenWeather::sendCommand(const QString& type, const QString& entityId, int cmd, const QVariant& param) {
     if (m_logCategory.isDebugEnabled()) {
-        qCDebug(m_logCategory) << "sendCommand " << type << " " << id << " " << cmd << " " << param.toString();
+        qCDebug(m_logCategory) << "sendCommand " << type << " " << entityId << " " << cmd << " " << param.toString();
     }
 }
 
@@ -310,7 +310,7 @@ void OpenWeather::onReplyCurrent(WeatherContext* context, QVariantMap& result) {
     Q_ASSERT(context != nullptr);
     context->current.fromCurrent(result);
     context->entity->setState(WeatherDef::ONLINE);
-    WeatherInterface* wi = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
+    WeatherInterface* wi   = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
     WeatherItem       item = context->current.toItem(_units, _iconUrl, true);
     wi->setCurrent(item);
     getForecast(context);
