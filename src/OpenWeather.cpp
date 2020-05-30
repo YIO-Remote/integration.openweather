@@ -67,7 +67,8 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
                                               << cacheDir;
                 }
             }
-            return new OpenWeather(apiUrl, iconUrl, key, cacheDir, cycleHours, config, entities, notifications, api, configObj, this);
+            return new OpenWeather(apiUrl, iconUrl, key, cacheDir, cycleHours,
+                                   config, entities, notifications, api, configObj, this);
         }
     }
     qCWarning(m_logCategory) << "No data element found";
