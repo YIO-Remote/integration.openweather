@@ -39,7 +39,7 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 
-    QString cachePath = configObj->getSettings().value("configPath").toString() + "/roon";
+    QString cachePath = config.value("cacheDir").toString();
     if (!QDir(cachePath).exists()) {
         if (!QDir().mkdir(cachePath)) {
             cachePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
