@@ -39,16 +39,39 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 
-    QString cachePath = config.value("cacheDir").toString();
-    if (!QDir(cachePath).exists()) {
-        if (!QDir().mkdir(cachePath)) {
-            cachePath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-            qCCritical(m_logCategory) << "Invalid configuration path, using system temp directory for caching:"
-                                      << cachePath;
+    for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
+        if (iter.key() == Integration::OBJ_DATA) {
+            QVariantMap map = iter.value().toMap();
+            int cycleHours = 2;
+            QString apiUrl = "https://api.openweathermap.org/data/2.5/";
+            QString iconUrl = "https://openweathermap.org/img/wn/";
+            QString key = "";
+            QString cacheDir = "";
+            for (QVariantMap::const_iterator iterv = map.begin(); iterv != map.end(); ++iterv) {
+                if (iterv.key() == "key") {
+                    key = iterv.value().toString();
+                } else if (iterv.key() == "cyclehours") {
+                    cycleHours = iterv.value().toInt();
+                } else if (iterv.key() == "url") {
+                    apiUrl = iterv.value().toString();
+                } else if (iterv.key() == "iconUrl") {
+                    iconUrl = iterv.value().toString();
+                } else if (iterv.key() == "cacheDir") {
+                    cacheDir = iterv.value().toString();
+                }
+            }
+            if (!QDir(cacheDir).exists()) {
+                if (!QDir().mkdir(cacheDir)) {
+                    cacheDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+                    qCCritical(m_logCategory) << "Invalid configuration path, using system temp directory for caching:"
+                                              << cacheDir;
+                }
+            }
+            return new OpenWeather(apiUrl, iconUrl, key, cacheDir, cycleHours, config, entities, notifications, api, configObj, this);
         }
     }
-
-    return new OpenWeather(cachePath, config, entities, notifications, api, configObj, this);
+    qCWarning(m_logCategory) << "No data element found";
+    return nullptr;
 }
 
 WeatherItem OpenWeatherModel::toItem(const QString& units, const QString& iconUrl, bool current) {
@@ -183,28 +206,26 @@ void OpenWeatherModel::toDayForecast(QList<OpenWeatherModel>& perDay, const QLis
     }
 }
 
-OpenWeather::OpenWeather(const QString& cacheDirectory, const QVariantMap& config, EntitiesInterface* entities,
+OpenWeather::OpenWeather(const QString& apiUrl, const QString& iconUrl, const QString& key,
+                         const QString& cacheDirectory, int cycleHours,
+                         const QVariantMap& config, EntitiesInterface* entities,
                          NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj,
                          Plugin* plugin)
     : Integration(config, entities, notifications, api, configObj, plugin),
-      _cycleHours(0),
-      _apiUrl("https://api.openweathermap.org/data/2.5/"),
-      _iconUrl("https://openweathermap.org/img/wn/"),
+      _cycleHours(cycleHours),
+      _apiUrl(apiUrl),
+      _iconUrl(iconUrl),
+      _key(key),
       _imageCache(_iconUrl, cacheDirectory, m_logCategory, true),
       _nam(this) {
+
+    _units = configObj->getUnitSystem() == ConfigInterface::IMPERIAL ? "imperial" : "metric";
+    _language = configObj->getSettings().value("language").toString();
+    if (_language.length() > 2)
+        _language.truncate(2);
+
     QObject::connect(&_imageCache, &ImageCache::allLoaded, this, &OpenWeather::onAllImagesLoaded);
 
-    for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
-        if (iter.key() == "key") {
-            _key = iter.value().toString();
-        } else if (iter.key() == "language") {
-            _language = iter.value().toString();
-        } else if (iter.key() == "units") {
-            _units = iter.value().toString();
-        } else if (iter.key() == "cyclehours") {
-            _cycleHours = iter.value().toInt();
-        }
-    }
     _requestTimer.setInterval(1000 * 3600);
     _requestTimer.setSingleShot(false);
     _requestTimer.start();
@@ -328,7 +349,7 @@ void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result) 
 
     context->forecastWaitForImages.clear();
 
-    WeatherItem todayitem = context->current.toItem(_units, _iconUrl, true);
+    WeatherItem todayitem = context->current.toItem(_units, _iconUrl, false);
     if (!applyImageCache(todayitem, context->current)) {
         ready = false;
     }

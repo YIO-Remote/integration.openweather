@@ -80,9 +80,11 @@ class OpenWeather : public Integration {
     Q_OBJECT
 
  public:
-    explicit OpenWeather(const QString& cacheDirectory, const QVariantMap& config, EntitiesInterface* entities,
-                         NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj,
-                         Plugin* plugin);
+    explicit OpenWeather(const QString& apiUrl, const QString& iconUrl, const QString& key,
+                         const QString& cacheDirectory, int cycleHours,
+                         const QVariantMap& config,
+                         EntitiesInterface* entities, NotificationsInterface* notifications,
+                         YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
     void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
 
