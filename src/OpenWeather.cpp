@@ -75,8 +75,7 @@ Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, Ent
     return nullptr;
 }
 
-WeatherItem OpenWeatherModel::toItem(const QString& units, const QString& iconUrl, bool current) {
-    Q_UNUSED(units)
+WeatherItem OpenWeatherModel::toItem(bool imperial, const QString& iconUrl, bool current) {
     WeatherItem item;
     QDate       dt      = QDateTime::fromSecsSinceEpoch(date).date();
     QString     dayname = QDate::shortDayName(dt.dayOfWeek());
@@ -89,28 +88,53 @@ WeatherItem OpenWeatherModel::toItem(const QString& units, const QString& iconUr
     item.setDescription(description);
     item.setImageurl(iconUrl + imageurl + "@2x.png");
 
-    if (current) {
-        item.setTemp(QString("%1 (%2 - %3) °C").arg(temp).arg(tempmin).arg(tempmax));
-    } else {
-        item.setTemp(QString("%1 - %2 °C").arg(tempmin).arg(tempmax));
-    }
-
-    if (rain > 0) {
-        item.setRain(QString("%1 mm").arg(rain));
-        item.setSnow("");
-    } else {
-        item.setRain("");
-        if (snow > 0) {
-            item.setSnow(QString("%1 mm").arg(snow));
+    if (imperial) {
+        if (current) {
+            item.setTemp(QString("%1 (%2 - %3) °F").arg(temp).arg(tempmin).arg(tempmax));
         } else {
+            item.setTemp(QString("%1 - %2 °F").arg(tempmin).arg(tempmax));
+        }
+        if (rain > 0) {
+            item.setRain(QString("%1 mm").arg(rain));
             item.setSnow("");
+        } else {
+            item.setRain("");
+            if (snow > 0) {
+                item.setSnow(QString("%1 mm").arg(snow));
+            } else {
+                item.setSnow("");
+            }
+        }
+        if (wind > 0) {
+            item.setWind(QString("%1 mph").arg(wind));
+        } else {
+            item.setWind("");
         }
     }
-    if (wind > 0) {
-        item.setWind(QString("%1 km/h").arg(wind));
-    } else {
-        item.setWind("");
+    else {
+        if (current) {
+            item.setTemp(QString("%1 (%2 - %3) °C").arg(temp).arg(tempmin).arg(tempmax));
+        } else {
+            item.setTemp(QString("%1 - %2 °C").arg(tempmin).arg(tempmax));
+        }
+        if (rain > 0) {
+            item.setRain(QString("%1 mm").arg(rain));
+            item.setSnow("");
+        } else {
+            item.setRain("");
+            if (snow > 0) {
+                item.setSnow(QString("%1 mm").arg(snow));
+            } else {
+                item.setSnow("");
+            }
+        }
+        if (wind > 0) {
+            item.setWind(QString("%1 m/s").arg(wind));
+        } else {
+            item.setWind("");
+        }
     }
+
     item.setHumidity(QString("%1 %").arg(humidity));
     return item;
 }
@@ -217,10 +241,15 @@ OpenWeather::OpenWeather(const QString& apiUrl, const QString& iconUrl, const QS
       _apiUrl(apiUrl),
       _iconUrl(iconUrl),
       _key(key),
+      _units("metric"),
+      _imperial(false),
       _imageCache(_iconUrl, cacheDirectory, m_logCategory, true),
-      _nam(this) {
-
-    _units = configObj->getUnitSystem() == ConfigInterface::IMPERIAL ? "imperial" : "metric";
+      _nam(this)
+{
+    if (configObj->getUnitSystem() == ConfigInterface::IMPERIAL) {
+        _units = "imperial";
+        _imperial = true;
+    }
     _language = configObj->getSettings().value("language").toString();
     if (_language.length() > 2)
         _language.truncate(2);
@@ -333,7 +362,7 @@ void OpenWeather::onReplyCurrent(WeatherContext* context, QVariantMap& result) {
     context->current.fromCurrent(result);
     context->entity->setState(WeatherDef::ONLINE);
     WeatherInterface* wi   = static_cast<WeatherInterface*>(context->entity->getSpecificInterface());
-    WeatherItem       item = context->current.toItem(_units, _iconUrl, true);
+    WeatherItem       item = context->current.toItem(_imperial, _iconUrl, true);
     wi->setCurrent(item);
     getForecast(context);
 }
@@ -350,14 +379,14 @@ void OpenWeather::onReplyForecast(WeatherContext* context, QVariantMap& result) 
 
     context->forecastWaitForImages.clear();
 
-    WeatherItem todayitem = context->current.toItem(_units, _iconUrl, false);
+    WeatherItem todayitem = context->current.toItem(_imperial, _iconUrl, false);
     if (!applyImageCache(todayitem, context->current)) {
         ready = false;
     }
     context->forecastWaitForImages.append(todayitem);
     for (QList<OpenWeatherModel>::iterator i = context->forecast.begin(); i != context->forecast.end(); ++i) {
         if (context->current.day() != i->day()) {
-            WeatherItem dayitem = i->toItem(_units, _iconUrl, false);
+            WeatherItem dayitem = i->toItem(_imperial, _iconUrl, false);
             if (!applyImageCache(dayitem, *i)) {
                 ready = false;
             }

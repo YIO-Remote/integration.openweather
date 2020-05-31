@@ -67,7 +67,7 @@ struct OpenWeatherModel {
 
     int         day() const { return date / 86400; }
     int         hour() const { return (date % 86400) / 3600; }
-    WeatherItem toItem(const QString& units, const QString& iconUrl, bool curren);
+    WeatherItem toItem(bool imperial, const QString& iconUrl, bool curren);
     void        fromCurrent(const QVariantMap& current);
     void        init(const OpenWeatherModel& model);
     void        add(const OpenWeatherModel& model);
@@ -120,6 +120,7 @@ class OpenWeather : public Integration {
     QString               _key;
     QString               _language;
     QString               _units;
+    bool                  _imperial;
     QList<WeatherContext> _contexts;
     WeatherModel          _model;
     ImageCache            _imageCache;
