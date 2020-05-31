@@ -110,8 +110,7 @@ WeatherItem OpenWeatherModel::toItem(bool imperial, const QString& iconUrl, bool
         } else {
             item.setWind("");
         }
-    }
-    else {
+    } else {
         if (current) {
             item.setTemp(QString("%1 (%2 - %3) °C").arg(temp).arg(tempmin).arg(tempmax));
         } else {
@@ -244,8 +243,8 @@ OpenWeather::OpenWeather(const QString& apiUrl, const QString& iconUrl, const QS
       _units("metric"),
       _imperial(false),
       _imageCache(_iconUrl, cacheDirectory, m_logCategory, true),
-      _nam(this)
-{
+      _nam(this) {
+
     if (configObj->getUnitSystem() == ConfigInterface::IMPERIAL) {
         _units = "imperial";
         _imperial = true;
