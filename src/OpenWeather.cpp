@@ -245,7 +245,7 @@ OpenWeather::OpenWeather(const QString& apiUrl, const QString& iconUrl, const QS
       _imageCache(_iconUrl, cacheDirectory, m_logCategory, true),
       _nam(this) {
 
-    if (configObj->getUnitSystem() == ConfigInterface::IMPERIAL) {
+    if (configObj->getUnitSystem() == UnitSystem::IMPERIAL) {
         _units = "imperial";
         _imperial = true;
     }
