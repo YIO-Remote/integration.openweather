@@ -29,7 +29,7 @@
 #include "yio-interface/configinterface.h"
 #include "yio-interface/entities/weatherinterface.h"
 
-OpenWeatherPlugin::OpenWeatherPlugin() : Plugin("openweather", NO_WORKER_THREAD) {}
+OpenWeatherPlugin::OpenWeatherPlugin() : Plugin("yio.plugin.openweather", NO_WORKER_THREAD) {}
 
 Integration* OpenWeatherPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
                                                   NotificationsInterface* notifications, YioAPIInterface* api,
